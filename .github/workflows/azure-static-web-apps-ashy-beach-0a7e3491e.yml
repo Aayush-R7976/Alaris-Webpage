@@ -2,45 +2,36 @@ name: Azure Static Web Apps CI/CD
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
     types: [opened, synchronize, reopened, closed]
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   build_and_deploy_job:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
-    name: Build and Deploy Job
     permissions:
-      id-token: write
       contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: true
           lfs: false
-
       - name: Build And Deploy
-        id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_ASHY_BEACH_0A7E3491E }}
-          action: "upload"
-          app_location: "/"             # your index.html is at root
-          output_location: ""           # no build folder
-          skip_app_build: true          # don't try Oryx build
-          github_id_token: ${{ steps.idtoken.outputs.result }}
+          action: upload
+          app_location: "/"     # index.html at repo root
+          output_location: ""   # <-- must be empty
+          skip_app_build: true  # <-- prevents Oryx build
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
-    name: Close Pull Request Job
     steps:
-      - name: Close Pull Request
-        id: closepullrequest
-        uses: Azure/static-web-apps-deploy@v1
+      - uses: Azure/static-web-apps-deploy@v1
         with:
-          action: "close"
+          action: close
