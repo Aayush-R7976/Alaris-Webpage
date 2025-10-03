@@ -173,14 +173,6 @@
   "image": "images/people/hayden.jpg", 
   "tags": ["AI Engineering Team"] },
 
-  { "name": "Joshua Ha",    
-  "role": "AI Engineering Team Associate", 
-  "section": "AI Engineering Team", 
-  "blurb": "Incoming recruit — AI Engineering Team associate.", 
-  "bio": "Hi my name is Joshua Ha, I am a Third-year Computer Science student at University of California, Riverside with a passion in AI autonomous technology. I am fascinated by developing and understanding autonomous systems that can solve real-world problems. I am currently focused on automotive engineering but am always open to working on AI-related projects.",
-  "image": "images/people/josh.jpg", 
-  "tags": ["AI Engineering Team"] },
-
   { "name": "Timmy Ngyuen",   
   "role": "AI Engineering Team Associate", 
   "section": "AI Engineering Team", 
