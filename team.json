@@ -71,22 +71,11 @@
     "role": "Advisor",
     "section": "Advisors",
     "trackOrDept": "Clinical AI",
-    "blurb": "Guides clinical realism and safety decisions for early-warning use cases.",
-    "bio": "Guides clinical realism and safety decisions for early-warning use cases.",
+    "blurb": "Guides Coding Team",
+    "bio": "Guides Coding Team",
     "image": "",
     "links": {},
-    "tags": ["Advisor","Clinical"]
-  },
-  {
-    "name": "Advisor (TBD)",
-    "role": "Advisor",
-    "section": "Advisors",
-    "trackOrDept": "Embedded Systems",
-    "blurb": "Advises sensor selection, power, and enclosure trade-offs.",
-    "bio": "Advises on sensor selection, power, and enclosure trade-offs to meet reliability and comfort goals.",
-    "image": "",
-    "links": {},
-    "tags": ["Advisor","Hardware"]
+    "tags": ["Advisor","Coding"]
   }
 ,
 
@@ -177,8 +166,8 @@
   "role": "AI Engineering Team Associate", 
   "section": "AI Engineering Team", 
   "blurb": "Incoming recruit — AI Engineering Team associate.", 
-  "bio":"",
-  "image": "", 
+  "bio":"My name is Timmy Ngyuen, I am a third year Electrical Engineering student at IVC. I hope to contribute by bringing in my knowledge to help all the subteams.",
+  "image": "images/people/timmy.jpg", 
   "tags": ["AI Engineering Team", "Hardware Integration Team", "Bioscience Team"] },
 
   { "name": "Jundy Kato",   
