@@ -1,31 +1,6 @@
 
 [
   {
-    "name": "Clinical Advisor (TBD)",
-    "role": "Advisor",
-    "section": "Advisors",
-    "trackOrDept": "Clinical AI",
-    "year": "",
-    "bio": "Guides clinical realism and safety decisions for early-warning use cases.",
-    "image": "",
-    "tags": ["Advisor", "Clinical"],
-    "links": {}
-  },
-
-  {
-    "name": "Hardware Advisor (TBD)",
-    "role": "Advisor",
-    "section": "Advisors",
-    "trackOrDept": "Embedded Systems",
-    "year": "",
-    "blurb":"Advises on sensor selection, power, and enclosure trade-offs.",
-    "bio": "",
-    "image": "",
-    "tags": ["Advisor", "Hardware"],
-    "links": {}
-  },
-
-  {
     "name": "Abraham Nakhal",
     "role": "Head of the BioScience Team",
     "section": "Founder",
@@ -66,18 +41,6 @@
     "links": { "linkedin": "", "github": "", "website": "" },
     "tags": ["Hardware"]
   },
-  {
-    "name": "Advisor (TBD)",
-    "role": "Advisor",
-    "section": "Advisors",
-    "trackOrDept": "Clinical AI",
-    "blurb": "Guides Coding Team",
-    "bio": "Guides Coding Team",
-    "image": "",
-    "links": {},
-    "tags": ["Advisor","Coding"]
-  }
-,
 
   { "name": "Baha Ahmed", 
   "role": "Data & Labeling Lead", 
