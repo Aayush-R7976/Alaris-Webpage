@@ -1,242 +1,263 @@
-// Team page — classic layout, Abraham-first, full bio in modal
+const navToggle = document.querySelector('.nav-toggle');
+const siteNav = document.querySelector('.site-nav');
+const searchInput = document.getElementById('teamSearch');
+const teamGrid = document.getElementById('teamGrid');
+const leadershipGrid = document.getElementById('leadershipGrid');
+const emptyState = document.getElementById('teamEmpty');
+const filterChips = Array.from(document.querySelectorAll('.filter-chip'));
 
-const el = {
-  search: document.getElementById('search'),
-  role: document.getElementById('role'),
-  sort: document.getElementById('sort'),
-  groups: document.getElementById('groups'),
-  empty: document.getElementById('empty'),
-  year: document.getElementById('year'),
-  modalEl: document.getElementById('personModal'),
-  modalAvatar: document.getElementById('modalAvatar'),
-  modalName: document.getElementById('modalName'),
-  modalMeta: document.getElementById('modalMeta'),
-  modalBio: document.getElementById('modalBio'),
-  modalLinks: document.getElementById('modalLinks'),
-};
-if (el.year) el.year.textContent = new Date().getFullYear();
+if (navToggle && siteNav) {
+  navToggle.addEventListener('click', () => {
+    siteNav.classList.toggle('open');
+    const expanded = navToggle.getAttribute('aria-expanded') === 'true';
+    navToggle.setAttribute('aria-expanded', String(!expanded));
+  });
 
-const normalize = (s='') => s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'');
-const slug = s => normalize(s||'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
-
-// Collapse whitespace + strip any accidental HTML
-function cleanText(v=''){
-  return String(v).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  siteNav.querySelectorAll('a').forEach((link) => {
+    link.addEventListener('click', () => {
+      siteNav.classList.remove('open');
+      navToggle.setAttribute('aria-expanded', 'false');
+    });
+  });
 }
 
-// Pick the best available blurb field from a person object
-function getBlurb(p){
-  const candidates = [p.cardBlurb, p.blurb, p.bio, p.description, p.about];
-  const first = candidates.find(v => v && cleanText(v).length);
-  return first ? cleanText(first) : '';
-}
+const modalRoot = document.createElement('div');
+modalRoot.className = 'person-modal';
+modalRoot.innerHTML = `
+  <div class="person-modal-backdrop"></div>
+  <div class="person-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="personModalName">
+    <button class="person-modal-close" aria-label="Close modal">&times;</button>
+    <div class="person-modal-content">
+      <div class="person-modal-image-wrap">
+        <img id="personModalImage" class="person-modal-image" src="" alt="">
+      </div>
+      <div class="person-modal-body">
+        <h3 id="personModalName"></h3>
+        <p id="personModalRole" class="person-modal-role"></p>
+        <p id="personModalBio" class="person-modal-bio"></p>
+        <div id="personModalLinks" class="person-modal-links"></div>
+      </div>
+    </div>
+  </div>
+`;
+document.body.appendChild(modalRoot);
 
-
-// Normalize a section label to a stable key (handles typos & variants)
-function sectionKey(name = "") {
-  const n = normalize(name).replace(/team|the/g, "").trim();
-  if (/advisor/.test(n)) return "advisors";
-  if (/co[-\s]*founder/.test(n)) return "co-founders";
-  if (/founder/.test(n)) return "founder";
-  if (/bio|bioscience|biology/.test(n)) return "bioscience";
-  if (/hardware|integration|innov/.test(n)) return "hardware";
-  if (/ai|engineering|coding|software/.test(n)) return "ai-engineering";
-  if (/member/.test(n)) return "members";
-  return "other";
-}
-
-// Desired section order (lower is earlier)
-const SECTION_WEIGHT = {
-  "advisors": 0,
-  "founder": 1,
-  "co-founders": 2,
-  "bioscience": 3,
-  "hardware": 4,
-  "ai-engineering": 5,
-  "members": 6,
-  "other": 9
+const modalEls = {
+  root: modalRoot,
+  backdrop: modalRoot.querySelector('.person-modal-backdrop'),
+  close: modalRoot.querySelector('.person-modal-close'),
+  image: modalRoot.querySelector('#personModalImage'),
+  name: modalRoot.querySelector('#personModalName'),
+  role: modalRoot.querySelector('#personModalRole'),
+  bio: modalRoot.querySelector('#personModalBio'),
+  links: modalRoot.querySelector('#personModalLinks')
 };
 
-function sectionOrder(name) {
-  return SECTION_WEIGHT[sectionKey(name)] ?? 9;
+function normalizeText(value = '') {
+  return String(value).replace(/\s+/g, ' ').trim();
 }
 
-function shortText(text, max=160){
-  if(!text) return '';
-  const t = text.trim();
-  if (t.length <= max) return t;
-  const cut = t.slice(0, max);
-  const lastSpace = cut.lastIndexOf(' ');
-  return (lastSpace>80? cut.slice(0,lastSpace):cut).trim() + '…';
+function createId(name, index) {
+  return `${String(name || 'member')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')}-${index}`;
 }
 
-function assignIds(list){
-  const seen = new Map();
-  for (const p of list){
-    let base = slug(p.name||'member');
-    let id = base, n = 1;
-    while(seen.has(id)){ id = base + '-' + (++n); }
-    seen.set(id, true);
-    p.id = id;
-  }
-  return list;
+function normalizeGroup(section = '') {
+  const s = section.toLowerCase();
+  if (s.includes('founder') && !s.includes('co')) return 'founder';
+  if (s.includes('co-founder') || s.includes('co founders')) return 'cofounder';
+  if (s.includes('bioscience') || s.includes('biology')) return 'bioscience';
+  if (s.includes('hardware')) return 'hardware';
+  if (s.includes('ai engineering') || s.includes('coding') || s.includes('software')) return 'ai';
+  return 'other';
 }
 
-let PEOPLE = [];
-const PEOPLE_BY_ID = new Map();
-
-async function load(){
-  try{
-    const res = await fetch('team.json', {cache:'no-cache'});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    PEOPLE = await res.json();
-  }catch(e){
-    console.error('Failed to load team.json', e);
-    PEOPLE = [];
-  }
-  assignIds(PEOPLE);
-  PEOPLE.forEach(p => PEOPLE_BY_ID.set(p.id, p));
-  populateRoleFilter(PEOPLE);
-  render();
+function getShortBlurb(person) {
+  return normalizeText(
+    person.blurb ||
+    person.cardBlurb ||
+    person.description ||
+    person.about ||
+    person.bio ||
+    ''
+  );
 }
 
-function populateRoleFilter(data){
-  const roles = Array.from(new Set(data.map(p => p.role).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
-  role.innerHTML = '<option value="">All roles</option>' + roles.map(r=>`<option value="${r}">${r}</option>`).join('');
+function personImage(person, size = 600) {
+  return person.image || `https://placehold.co/${size}x${size}?text=${encodeURIComponent(person.name || 'Member')}`;
 }
 
-function personCard(p){
-  const imgSrc = p.image || `https://placehold.co/300x300/png?text=${encodeURIComponent((p.name||'Member').split(' ')[0])}`;
-  const tagsHtml = (p.tags||[]).map(t => `<span class="tag">${t}</span>`).join('');
-  const links = p.links || {};
-  const link = (label, href) => href ? `<a class="btn btn-sm btn-outline-light" href="${href}" target="_blank" rel="noopener" aria-label="${label}">${label}</a>` : '';
+function linkButton(label, href) {
+  if (!href) return '';
+  return `<a href="${href}" target="_blank" rel="noopener">${label}</a>`;
+}
 
-  const blurb = getBlurb(p); // NEW
-
+function createLeadershipCard(person) {
   return `
-    <article class="person-card h-100" tabindex="0" data-person-id="${p.id}">
-      <div class="avatar-wrap">
-        <img class="avatar" loading="lazy" decoding="async" src="${imgSrc}" alt="${p.name}'s headshot"
-          onerror="this.onerror=null; this.src='https://placehold.co/300x300?text=${encodeURIComponent((p.name||'Member').split(' ')[0])}';">
-      </div>
-      <h4 class="name">${p.name}</h4>
-      <p class="role">${[p.role, p.trackOrDept, p.year].filter(Boolean).join(' • ')}</p>
-
-      ${ blurb
-          ? `<p class="blurb">${shortText(blurb, 160)}</p>`
-          // or use the next line if you want a visible placeholder:
-          // : `<p class="blurb text-muted">Bio coming soon.</p>`
-          : ''
-      }
-
-      <div class="tags">${tagsHtml}</div>
-      <div class="links">
-        ${link('Website', links.website)}
-        ${link('GitHub', links.github)}
-        ${link('LinkedIn', links.linkedin)}
-        ${link('Email', links.email ? 'mailto:'+links.email : '')}
-      </div>
+    <article class="leadership-card" tabindex="0" data-person="${person.id}">
+      <img src="${personImage(person)}" alt="${person.name}"
+        onerror="this.onerror=null; this.src='https://placehold.co/600x600?text=${encodeURIComponent(person.name)}'">
+      <h3>${person.name}</h3>
+      <p class="leadership-role">${person.role || ''}</p>
+      <p class="leadership-blurb">${getShortBlurb(person)}</p>
     </article>
   `;
 }
 
-
-function render(){
-  const q = normalize(el.search.value);
-  const roleVal = el.role.value;
-  const sort = el.sort.value || 'name-asc';
-
-  let list = PEOPLE.filter(p => {
-    const hay = normalize([p.name, p.role, p.trackOrDept, (p.tags||[]).join(' '), p.bio||''].join(' '));
-    const roleOk = !roleVal || p.role === roleVal;
-    const qOk = !q || hay.includes(q);
-    return roleOk && qOk;
-  });
-
-  list.sort((a,b)=>{
-    const cmp = (x,y)=>(x||'').localeCompare(y||'');
-    switch(sort){
-      case 'name-desc': return cmp(b.name, a.name);
-      case 'role-asc':  return cmp(a.role, b.role) || cmp(a.name, b.name);
-      case 'role-desc': return cmp(b.role, a.role) || cmp(a.name, b.name);
-      default:          return cmp(a.name, b.name);
-    }
-  });
-
-  const groups = {};
-  for(const p of list){ (groups[p.section||'Members'] ||= []).push(p); }
-
-  // Abraham-first within Founder
-  if(groups['Founder']){
-    const i = groups['Founder'].findIndex(p => /abraham\s+nakhal/i.test(p.name));
-    if(i > -1){
-      const [ab] = groups['Founder'].splice(i,1);
-      groups['Founder'].unshift(ab);
-    }
-  }
-
-  const SECTION_ORDER = ["Advisors","Founder","Co-Founders","BioScience Team","Hardware Inovation Team","AI Engineering Team","Members"];
-  const ordered = Object.entries(groups).sort(([a],[b]) => {
-  const aw = sectionOrder(a);
-  const bw = sectionOrder(b);
-  return aw === bw ? a.localeCompare(b) : aw - bw;
-});
-
-  el.groups.innerHTML = ordered.map(([name, people])=>{
-    return `<section class="mb-4">
-      <h4 class="mb-3">${name}</h4>
-      <div class="row g-3">
-        ${people.map(p => `<div class="col-12 col-sm-6 col-md-4 col-lg-3">${personCard(p)}</div>`).join('')}
-      </div>
-    </section>`;
-  }).join('');
-
-  el.empty.hidden = list.length !== 0;
+function createDirectoryCard(person) {
+  return `
+    <article class="person-card" tabindex="0" data-person="${person.id}" data-group="${person.group}">
+      <img class="person-image" src="${personImage(person)}" alt="${person.name}"
+        onerror="this.onerror=null; this.src='https://placehold.co/600x600?text=${encodeURIComponent(person.name)}'">
+      <h4>${person.name}</h4>
+      <p class="person-role">${[person.role, person.trackOrDept].filter(Boolean).join(' • ')}</p>
+      <p class="person-bio">${getShortBlurb(person)}</p>
+    </article>
+  `;
 }
 
-// Modal population
-function openModal(person){
-  const img = person.image || `https://placehold.co/600x600/png?text=${encodeURIComponent((person.name||'Member').split(' ')[0])}`;
-  el.modalAvatar.src = img;
-  el.modalAvatar.alt = `${person.name}'s headshot`;
-  el.modalName.textContent = person.name;
-  el.modalMeta.textContent = [person.role, person.trackOrDept, person.year].filter(Boolean).join(' • ');
-  el.modalBio.textContent = person.bio || 'No bio yet.';
-  const L = person.links || {};
-  const link = (label, href) => href ? `<a class="btn btn-sm btn-outline-light" href="${href}" target="_blank" rel="noopener" aria-label="${label}">${label}</a>` : '';
-  el.modalLinks.innerHTML = [
-    link('Website', L.website),
-    link('GitHub', L.github),
-    link('LinkedIn', L.linkedin),
-    link('Email', L.email ? 'mailto:'+L.email : '')
+function openModal(person) {
+  modalEls.image.src = personImage(person, 800);
+  modalEls.image.alt = person.name || '';
+  modalEls.name.textContent = person.name || '';
+  modalEls.role.textContent = [person.role, person.trackOrDept].filter(Boolean).join(' • ');
+  modalEls.bio.textContent = normalizeText(person.bio || person.blurb || 'Bio coming soon.');
+
+  const links = person.links || {};
+  modalEls.links.innerHTML = [
+    linkButton('Website', links.website),
+    linkButton('GitHub', links.github),
+    linkButton('LinkedIn', links.linkedin),
+    linkButton('Email', links.email ? `mailto:${links.email}` : '')
   ].join('');
 
-  const modal = bootstrap.Modal.getOrCreateInstance(el.modalEl);
-  modal.show();
+  modalEls.root.classList.add('open');
+  document.body.classList.add('modal-open');
 }
 
-// Events: open modal from card
-el.groups.addEventListener('click', e => {
-  const card = e.target.closest('.person-card'); if(!card) return;
-  const id = card.getAttribute('data-person-id');
-  const person = PEOPLE_BY_ID.get(id);
-  if(person) openModal(person);
+function closeModal() {
+  modalEls.root.classList.remove('open');
+  document.body.classList.remove('modal-open');
+}
+
+modalEls.backdrop.addEventListener('click', closeModal);
+modalEls.close.addEventListener('click', closeModal);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
 });
-el.groups.addEventListener('keydown', e => {
-  if((e.key === 'Enter' || e.key === ' ') && e.target.closest('.person-card')){
-    e.preventDefault();
-    const id = e.target.closest('.person-card').getAttribute('data-person-id');
-    const person = PEOPLE_BY_ID.get(id);
-    if(person) openModal(person);
+
+let allPeople = [];
+let activeFilter = 'all';
+let activeQuery = '';
+
+function leadershipPeople(team) {
+  return team
+    .filter(person => person.group === 'founder' || person.group === 'cofounder')
+    .sort((a, b) => {
+      if (/abraham nakhal/i.test(a.name)) return -1;
+      if (/abraham nakhal/i.test(b.name)) return 1;
+      if (a.group !== b.group) return a.group.localeCompare(b.group);
+      return a.name.localeCompare(b.name);
+    });
+}
+
+function directoryPeople(team) {
+  return team
+    .filter(person => ['bioscience', 'hardware', 'ai'].includes(person.group))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function renderLeadership() {
+  const leaders = leadershipPeople(allPeople);
+  leadershipGrid.innerHTML = leaders.map(createLeadershipCard).join('');
+}
+
+function matchesQuery(person, query) {
+  if (!query) return true;
+  const haystack = normalizeText([
+    person.name,
+    person.role,
+    person.trackOrDept,
+    person.section,
+    getShortBlurb(person),
+    (person.tags || []).join(' ')
+  ].join(' ')).toLowerCase();
+  return haystack.includes(query.toLowerCase());
+}
+
+function renderDirectory() {
+  const people = directoryPeople(allPeople).filter(person => {
+    const groupOk = activeFilter === 'all' || person.group === activeFilter;
+    return groupOk && matchesQuery(person, activeQuery);
+  });
+
+  teamGrid.innerHTML = people.map(createDirectoryCard).join('');
+  emptyState.hidden = people.length !== 0;
+  attachCardEvents();
+}
+
+function attachCardEvents() {
+  document.querySelectorAll('[data-person]').forEach((card) => {
+    const id = card.getAttribute('data-person');
+    const person = allPeople.find(p => p.id === id);
+    if (!person) return;
+
+    card.addEventListener('click', () => openModal(person));
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openModal(person);
+      }
+    });
+  });
+}
+
+function attachFilters() {
+  filterChips.forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeFilter = chip.dataset.filter;
+      filterChips.forEach(c => {
+        const active = c === chip;
+        c.classList.toggle('active', active);
+        c.setAttribute('aria-selected', String(active));
+      });
+      renderDirectory();
+    });
+  });
+
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      activeQuery = searchInput.value.trim();
+      renderDirectory();
+    });
   }
-});
+}
 
-// Filters: re-render on input/change
-['input','change'].forEach(evt => {
-  el.search.addEventListener(evt, render);
-  el.role.addEventListener(evt, render);
-  el.sort.addEventListener(evt, render);
-});
+async function loadTeam() {
+  const res = await fetch('team.json', { cache: 'no-cache' });
+  if (!res.ok) throw new Error(`Failed to load team.json: ${res.status}`);
+  const data = await res.json();
+  return data.map((person, index) => ({
+    ...person,
+    id: person.id || createId(person.name, index),
+    group: normalizeGroup(person.section || '')
+  }));
+}
 
-// Go
-load();
+(async function init() {
+  try {
+    allPeople = await loadTeam();
+    renderLeadership();
+    renderDirectory();
+    attachFilters();
+    attachCardEvents();
+  } catch (err) {
+    console.error(err);
+    emptyState.hidden = false;
+    emptyState.textContent = 'Unable to load team data right now.';
+  }
+})();
